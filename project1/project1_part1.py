@@ -35,23 +35,24 @@ V = {s: 0.0 for s in states}
 
 # %%
 def policy_evaluation(policy, V, P, r, theta, gamma):
-    """
-    Performs policy evaluation until value function converges.
-    """
+    """Performs policy evaluation until value function converges."""
+    iterations = 0
+    history = []
     while True:
         delta = 0
         for s in states:
-            v = V[s]
-            a = policy[s]
+            v = V[s]  # Store old value
+            a = policy[s]  # Policy dictates action
             V[s] = sum(P[s][a][s_next] * (r[s][a] + gamma * V[s_next]) for s_next in states)
             delta = max(delta, abs(v - V[s]))
+        history.append(sum(V.values()))  # Track value function sum over time
+        iterations += 1
         if delta < theta:
             break
+    return iterations, history
 
 def policy_improvement(policy, V, P, r, gamma):
-    """
-    Performs policy improvement by selecting greedy actions.
-    """
+    """Performs policy improvement by selecting greedy actions."""
     policy_stable = True
     for s in states:
         old_action = policy[s]
@@ -62,30 +63,38 @@ def policy_improvement(policy, V, P, r, gamma):
             policy_stable = False
     return policy_stable
 
-def policy_iteration():
-    """
-    Runs the policy iteration algorithm.
-    See course book page 80 for algorithm that we have used in pseudo code.
-    """
+def policy_iteration(P, r, gamma):
+    """Runs the policy iteration algorithm."""
+    policy = {s: "continue" for s in states}  # Initial policy
+    V = {s: 0.0 for s in states}  # Initialize state-value function
+    iteration_count = 0
+    history = []
     while True:
-        policy_evaluation(policy, V, P, r, theta, gamma)
+        iteration_count += 1
+        eval_iterations, eval_history = policy_evaluation(policy, V, P, r, theta, gamma)
+        history.extend(eval_history)
         if policy_improvement(policy, V, P, r, gamma):
             break  # Stop if policy is stable
-    return policy, V
+    return policy, V, iteration_count, history
 
-def value_iteration():
+def value_iteration(P, r, gamma):
     """Runs the value iteration algorithm."""
     V = {s: 0.0 for s in states}  # Reset value function
+    iteration_count = 0
+    history = []
     while True:
         delta = 0
         for s in states:
             v = V[s]
             V[s] = max(sum(P[s][a][s_next] * (r[s][a] + gamma * V[s_next]) for s_next in states) for a in actions)
             delta = max(delta, abs(v - V[s]))
+        history.append(sum(V.values()))  # Track value function sum over time
+        iteration_count += 1
         if delta < theta:
             break
     policy = {s: max(actions, key=lambda a: sum(P[s][a][s_next] * (r[s][a] + gamma * V[s_next]) for s_next in states)) for s in states}
-    return policy, V
+    return policy, V, iteration_count, history
+
 
 # %%
 # Run policy iteration
