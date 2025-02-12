@@ -1,6 +1,6 @@
 # %%
 import numpy as np
-
+from matplotlib import pyplot as plt
 
 # %%
 # MDP components
@@ -98,13 +98,36 @@ def value_iteration(P, r, gamma):
 
 # %%
 # Run policy iteration
-optimal_policy, optimal_values = policy_iteration()
+optimal_policy, optimal_values, iteration_count, history_pi = policy_iteration(P, r, gamma)
 print("Optimal Policy (Policy iteration):", optimal_policy)
 print("Optimal State Values (Policy iteration):", optimal_values)
 
 # Run value iteration
-optimal_policy_vi, optimal_values_vi = value_iteration()
+optimal_policy_vi, optimal_values_vi, iteration_count_vi, history_vi = value_iteration(P, r, gamma)
 print("\nOptimal Policy (Value Iteration):", optimal_policy_vi)
 print("Optimal State Values (Value Iteration):", optimal_values_vi)
+
+# %%
+gamma_values = [0.7, 0.8, 0.9]
+fig, axes = plt.subplots(2, 1, figsize=(8, 10))
+
+# Policy Iteration Plot
+for gamma in gamma_values:
+    _, _, _, history_pi = policy_iteration(P, r, gamma)
+    axes[0].plot(history_pi, label=f'Policy Iteration (γ={gamma})')
+axes[0].set_ylabel("Sum of State Values")
+axes[0].legend(loc = 'lower right')
+axes[0].grid()
+
+# Value Iteration Plot
+for gamma in gamma_values:
+    _, _, _, history_vi = value_iteration(P, r, gamma)
+    axes[1].plot(history_vi, label=f'Value Iteration (γ={gamma})')
+axes[1].set_xlabel("Iterations")
+axes[1].legend()
+axes[1].grid()
+
+plt.tight_layout()
+plt.show()
 
 # %%
