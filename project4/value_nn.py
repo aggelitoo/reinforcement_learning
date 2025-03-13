@@ -56,7 +56,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2,
 ######################################################################
 
 # Input layer
-inputs = layers.Input(shape=(4, 4, 1))
+inputs = layers.Input(shape=(height, width, channels))
 
 def simple_residual_block(x, channels=16, kernel_size=(3,3), weight_decay=0.001):
     shortcut = x  # No projection needed if dimensions already match.
