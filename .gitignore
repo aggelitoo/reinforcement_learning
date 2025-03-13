@@ -1,3 +1,3 @@
 **/*.png
-project4/othello_sim_actions_100000
-project4/othello_sim_boards_100000
+project4/othello_sim_actions*
+project4/othello_sim_boards*
