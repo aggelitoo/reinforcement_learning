@@ -196,8 +196,5 @@ def online_value_training(value_model, replay_buffer):
 
     return value_model, history
 
+# updated model and history from new training
 value_model, history_1 = online_value_training(value_model, replay_buffer_1)
-
-print(value_model.predict(temp))
-
-# %%
