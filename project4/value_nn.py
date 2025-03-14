@@ -6,6 +6,9 @@ import keras
 from keras import layers, regularizers, Model
 from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
+from mc_tree_search import *
+from preprocessing_fcts import *
+
 
 # Unpickling and saving the games to a list
 def read_files():
@@ -13,47 +16,15 @@ def read_files():
         boards = pickle.load(fp)
     return boards
 
-games = read_files()
-
-# each element in data is a tuple of a board position (state)
-# and label (-1, 0 or 1), denoting how that particular game ended
-data = []
-for game in games:
-    for position in game[0]:
-        data.append((position, game[1]))
-
-# We only want to keep unique (board, reward) tuples
-unique_dict = {}
-for state, target in data:
-    # Convert the matrix to a hashable representation using .tobytes()
-    key = (state.tobytes(), target)
-    
-    # Only add unique tuples
-    if key not in unique_dict:
-        unique_dict[key] = (state, target)
-
-# Saving the unique (board, reward) tuples as data list
-data = list(unique_dict.values())
+games_iter0 = read_files()
 
 # %%
+###########################################################################
+# ------------------ Beginning of VALUE NN architecture -------------------
+###########################################################################
+
 # We now want to curate training/validation data sets for NN
 height, width, channels = 4, 4, 1
-
-# order data into predictors and targets
-X = np.array([x for x, _ in data])
-y = np.array([y for _, y in data])
-
-# expanding X to include channel
-X = np.expand_dims(X, axis=-1)
-
-# splitting data into training and validation
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2,
-                                                    random_state=80085)
-
-# %%
-######################################################################
-# ------------------ Beginning of NN architecture -------------------
-######################################################################
 
 # Input layer
 inputs = layers.Input(shape=(height, width, channels))
@@ -100,35 +71,130 @@ outputs = layers.Dense(1, name="value_output")(x)
 value_model = Model(inputs=inputs, outputs=outputs)
 value_model.summary()
 
-######################################################################
-# -------------------- End of NN architecture ----------------------
-######################################################################
+##########################################################################
+# -------------------- End of VALUE NN architecture ----------------------
+##########################################################################
 
-# Optimizer for the model and training
+# splitting data into training and validation
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2,
+                                                    random_state=80085)
+
+# Optimizer for the value model
 value_model.compile(
     optimizer=keras.optimizers.SGD(learning_rate=0.001, momentum=0.9),
     loss = keras.losses.MeanSquaredError()
     # metrics = [keras.metrics.RootMeanSquaredError]
 )
 
-# Training the model
+# Training the value model
 history = value_model.fit(
     X_train,
     y_train,
     batch_size = 32,
-    epochs = 50,
+    epochs = 10,
     validation_data=(X_test, y_test)
 )
 
-# evaluating the model
+value_model.save_weights('zeroth_network.weights.h5')
+
+# evaluating the value model
 test_loss = value_model.evaluate(X_test, y_test, verbose=2)
 
 # %%
-# plotting the training and validation curve
+# plotting the training and validation curve for value network
 plt.plot(history.history['loss'], label='Training loss')
 plt.plot(history.history['val_loss'], label = 'Validation loss')
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
 plt.legend(loc='upper right')
 plt.show()
+
+# %%
+##########################################################################
+# ----------------------- Functions to build tree -----------------------
+##########################################################################
+
+def build_tree(n, nr_terminal):
+    game = OthelloBoard(n)
+    root = MCTSNode(n, game.board, game.to_play)
+    episodes = []
+    learning_curve = []
+    temp_terminal = {}
+    # for _ in range(nr_terminal):
+    count = 0
+    while True:
+        terminal_state, reward = expand_tree(root, root)      
+        episodes.append((episode(terminal_state)[:-1], reward))
+        learning_curve.append(reward)
+        temp_terminal[terminal_state] = terminal_state.terminal_visits
+        if terminal_state.terminal_visits == 1000:
+            break
+
+    return episodes, temp_terminal, learning_curve
+
+
+def expand_tree(root, node):
+    if node._untried_actions:  # Not a leaf
+        return expand_node(root, node)
+    else:
+        if node.pass_counter != 2:
+            best_child = node.best_child()
+            return expand_tree(root, best_child)
+        else: # Terminal node/state
+            reward = node.find_winner(node.state)
+            node.backpropagate(reward)
+            node.terminal_visits += 1
+            return node, reward
+
+
+def expand_node(root, node):
+    next_node = node.expand()
+    q_val = value_model.predict(np.expand_dims(np.array(next_node.state), axis=(0,-1)))[0][0]
+    next_node.update_q(q_val)
+    next_node.backpropagate(next_node.q_value)
+    return expand_tree(root, root)
+
+
+def episode(node):
+    episode_list = [np.array(node.state)]
+    if node.parent:
+        episode_list.extend(episode(node.parent))
+    return episode_list
+
+# %%
+replay_buffer_1, term_State, lc = build_tree(4,100000)
+
+# %%
+##########################################################################
+# ----------------------- Online training section -----------------------
+##########################################################################
+
+"""
+Given a replay buffer, we want to be able to continously feed new game
+information into the value network in the form of mini batches. This
+section aims to prepare for thats.
+
+Replay buffer will be in the form of a list of tuples, where the first 
+elements in each tuple is a game consisting of a sequence of board positions
+and the second element is the observed reward from that game.
+"""
+
+def online_value_training(value_model, replay_buffer):
+    """
+    PRUTT
+    """
+    state_return_tuples = unpack_positions_returns(replay_buffer)
+    X, y = value_predictors_targets(state_return_tuples)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+    history = value_model.fit(
+        X_train, y_train,               
+        batch_size=32,                  
+        epochs=1,                       
+        validation_data=(X_test, y_test)
+    )
+
+    return value_model, history
+
+value_model, history_1 = online_value_training(value_model, replay_buffer_1)
 # %%
