@@ -9,15 +9,6 @@ from matplotlib import pyplot as plt
 from mc_tree_search import *
 from preprocessing_fcts import *
 
-
-# Unpickling and saving the games to a list
-def read_files():
-    with open("othello_sim_boards_100000", "rb") as fp: 
-        boards = pickle.load(fp)
-    return boards
-
-games_iter0 = read_files()
-
 # %%
 ###########################################################################
 # ------------------ Beginning of VALUE NN architecture -------------------
@@ -75,6 +66,12 @@ value_model.summary()
 # -------------------- End of VALUE NN architecture ----------------------
 ##########################################################################
 
+# Initial value network data - from completely random games
+games_iter0 = read_files()
+state_return_tuples = unpack_positions_returns(games_iter0)
+state_return_tuples = unique_board_positions(state_return_tuples)
+X, y = value_predictors_targets(state_return_tuples)
+
 # splitting data into training and validation
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2,
                                                     random_state=80085)
@@ -91,7 +88,7 @@ history = value_model.fit(
     X_train,
     y_train,
     batch_size = 32,
-    epochs = 10,
+    epochs = 50,
     validation_data=(X_test, y_test)
 )
 
@@ -114,7 +111,7 @@ plt.show()
 # ----------------------- Functions to build tree -----------------------
 ##########################################################################
 
-def build_tree(n, nr_terminal):
+def build_tree(n):
     game = OthelloBoard(n)
     root = MCTSNode(n, game.board, game.to_play)
     episodes = []
@@ -127,7 +124,7 @@ def build_tree(n, nr_terminal):
         episodes.append((episode(terminal_state)[:-1], reward))
         learning_curve.append(reward)
         temp_terminal[terminal_state] = terminal_state.terminal_visits
-        if terminal_state.terminal_visits == 1000:
+        if terminal_state.terminal_visits == 100:
             break
 
     return episodes, temp_terminal, learning_curve
@@ -162,7 +159,7 @@ def episode(node):
     return episode_list
 
 # %%
-replay_buffer_1, term_State, lc = build_tree(4,100000)
+replay_buffer_1, term_State, lc = build_tree(4)
 
 # %%
 ##########################################################################
@@ -179,22 +176,28 @@ elements in each tuple is a game consisting of a sequence of board positions
 and the second element is the observed reward from that game.
 """
 
+value_model.load_weights('zeroth_network.weights.h5')
+
 def online_value_training(value_model, replay_buffer):
     """
     PRUTT
     """
     state_return_tuples = unpack_positions_returns(replay_buffer)
-    X, y = value_predictors_targets(state_return_tuples)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    X_buffer, y_buffer = value_predictors_targets(state_return_tuples)
+    X_train_onl, X_test_onl, y_train_onl, y_test_onl = train_test_split(X_buffer, y_buffer,
+                                                                        test_size=0.2)
 
     history = value_model.fit(
-        X_train, y_train,               
+        X_train_onl, y_train_onl,               
         batch_size=32,                  
-        epochs=1,                       
-        validation_data=(X_test, y_test)
+        epochs=10,                       
+        validation_data=(X_test_onl, y_test_onl)
     )
 
     return value_model, history
 
 value_model, history_1 = online_value_training(value_model, replay_buffer_1)
+
+print(value_model.predict(temp))
+
 # %%

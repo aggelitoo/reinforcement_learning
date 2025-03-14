@@ -50,3 +50,9 @@ def value_predictors_targets(state_return_tuples):
     X = np.expand_dims(X, axis=-1)
 
     return X, y
+
+# Unpickling and saving the games to a list
+def read_files():
+    with open("othello_sim_boards_100000", "rb") as fp: 
+        boards = pickle.load(fp)
+    return boards
