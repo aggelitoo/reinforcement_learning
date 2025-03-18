@@ -1,8 +1,6 @@
-# %%
 import copy
 import numpy as np
-# import matplotlib.pyplot as plt
-# %%
+
 # 0=blank, 1=tot_black, -1=white
 class OthelloBoard():
     dirx = [-1, 0, 1, -1, 1, -1, 0, 1]
@@ -159,6 +157,7 @@ class MCTSNode(OthelloBoard):
         self._nof_visits = 0
         self.player_turn = to_play
         self.q_value = 0
+        self.p_action = 0 
         self.avg_q_value = 0
         self.pass_counter = 0
         self._untried_actions = self.untried_actions()
@@ -189,6 +188,14 @@ class MCTSNode(OthelloBoard):
         self.q_value = val
         # return self.q_value
     
+    # generalize this function such that it works for something
+    def uniform_policy(self):
+        """
+        Initializes a policy uniformly over all legal actions.
+        """
+        nof_actions = len(self.child_nodes)
+        return 1 / nof_actions
+    
     def backpropagate(self, q_NN):
         # self.acum_q_value += q_NN
         self._nof_visits += 1
@@ -196,13 +203,17 @@ class MCTSNode(OthelloBoard):
         if self.parent: # Check if list is empty
             self.parent.backpropagate(q_NN)
             
-    def best_child(self, c_param=0.1):
+    def best_child(self, c):
         """
         Minimax for training two agents
         """
         if self.player_turn == 1: # max 
-            UCB_values = [child.avg_q_value + c_param*np.sqrt(np.log(self._nof_visits)/child._nof_visits) for child in self.child_nodes]
+            UCB_values = [child.avg_q_value + c * child.p_action * np.sqrt(self._nof_visits) / child._nof_visits
+                          for child in self.child_nodes]
+            #  + c_paramnp.sqrt(np.log(self._nof_visits)/child._nof_visits)
             return self.child_nodes[np.argmax(UCB_values)]
         elif self.player_turn == -1: # min
-            UCB_values = [child.avg_q_value - c_param*np.sqrt(np.log(self._nof_visits)/child._nof_visits) for child in self.child_nodes]
+            UCB_values = [child.avg_q_value - c * child.p_action * np.sqrt(self._nof_visits) / child._nof_visits
+                          for child in self.child_nodes]
+            #  - c_param*np.sqrt(np.log(self._nof_visits)/child._nof_visits)
             return self.child_nodes[np.argmin(UCB_values)]

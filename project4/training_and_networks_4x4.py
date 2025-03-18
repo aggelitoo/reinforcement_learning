@@ -1,5 +1,5 @@
 # %%
-import pickle
+import random
 import numpy as np
 import tensorflow as tf
 import keras
@@ -89,7 +89,8 @@ history = value_model.fit(
     y_train,
     batch_size = 32,
     epochs = 50,
-    validation_data=(X_test, y_test)
+    validation_data=(X_test, y_test),
+    callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=10)]
 )
 
 value_model.save_weights('zeroth_network.weights.h5')
@@ -111,16 +112,16 @@ plt.show()
 # ----------------------- Functions to build tree -----------------------
 ##########################################################################
 
-def build_tree(n):
+def build_tree(n, model):
     game = OthelloBoard(n)
     root = MCTSNode(n, game.board, game.to_play)
     episodes = []
     learning_curve = []
-    temp_terminal = {}
-    # for _ in range(nr_terminal):
+    tempterminal = {}
+    # for  in range(nr_terminal):
     count = 0
     while True:
-        terminal_state, reward = expand_tree(root, root)      
+        terminal_state, reward = expand_tree(root, root, model)
         episodes.append((episode(terminal_state)[:-1], reward))
         learning_curve.append(reward)
         temp_terminal[terminal_state] = terminal_state.terminal_visits
@@ -130,13 +131,13 @@ def build_tree(n):
     return episodes, temp_terminal, learning_curve
 
 
-def expand_tree(root, node):
+def expand_tree(root, node, model):
     if node._untried_actions:  # Not a leaf
-        return expand_node(root, node)
+        return expand_node(root, node, model)
     else:
         if node.pass_counter != 2:
             best_child = node.best_child()
-            return expand_tree(root, best_child)
+            return expand_tree(root, best_child, model)
         else: # Terminal node/state
             reward = node.find_winner(node.state)
             node.backpropagate(reward)
@@ -144,12 +145,12 @@ def expand_tree(root, node):
             return node, reward
 
 
-def expand_node(root, node):
+def expand_node(root, node, model):
     next_node = node.expand()
-    q_val = value_model.predict(np.expand_dims(np.array(next_node.state), axis=(0,-1)))[0][0]
+    q_val = model.predict(np.expand_dims(np.array(next_node.state), axis=(0,-1)))[0][0]
     next_node.update_q(q_val)
     next_node.backpropagate(next_node.q_value)
-    return expand_tree(root, root)
+    return expand_tree(root, root, model)
 
 
 def episode(node):
@@ -187,14 +188,28 @@ def online_value_training(value_model, replay_buffer):
     X_train_onl, X_test_onl, y_train_onl, y_test_onl = train_test_split(X_buffer, y_buffer,
                                                                         test_size=0.2)
 
-    history = value_model.fit(
+    history_onl = value_model.fit(
         X_train_onl, y_train_onl,               
         batch_size=32,                  
         epochs=10,                       
         validation_data=(X_test_onl, y_test_onl)
     )
 
-    return value_model, history
+    return value_model, history_onl
 
-# updated model and history from new training
+#updated model and history from new training
+replay_buffer_1, term_State, lc = build_tree(4, value_model)
 value_model, history_1 = online_value_training(value_model, replay_buffer_1)
+
+# %%
+replay_buffer_2, term_State_2, lc_2 = build_tree(4, value_model)
+
+# %%
+value_model, history_2 = online_value_training(value_model, replay_buffer_2)
+replay_buffer_3, term_State_3, lc_3 = build_tree(4, value_model)
+
+value_model, history_2 = online_value_training(value_model, replay_buffer_3)
+replay_buffer_4, term_State_4, lc_4 = build_tree(4, value_model)
+
+value_model, history_2 = online_value_training(value_model, replay_buffer_4)
+replay_buffer_5, term_State_5, lc_5 = build_tree(4, value_model)
