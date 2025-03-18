@@ -1,3 +1,4 @@
 **/*.png
-project4/othello_sim_actions*
-project4/othello_sim_boards*
+project4/othello_random_simulations
+project4/data_from_training
+project4/images
