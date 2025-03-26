@@ -176,96 +176,6 @@ with open('second_10cycles25episodes_c05_data', 'wb') as handle:
 value_model.save_weights('value_second_10cycles25episodes_c05.weights.h5')
 policy_model.save_weights('policy_second_10cycles25episodes_c05.weights.h5')
 
-
-# %%
-def unpack_plot_history(history_list):
-    for i, history in enumerate(history_list):
-        if history != []:
-            label = f"C{i}"
-            plt.plot(history.history['loss'], label=f'Training loss', color = label)
-            plt.plot(history.history['val_loss'], linestyle="dashed", label = 'Validation loss', color = label)
-
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss')
-    plt.legend(loc='upper right')
-    plt.show()
-
-
-
-
-
-
-
-
-
-
-
-
-# %%
-def cycle_results_histogram(episodes_list):
-    """
-    Takes in an ordered (from first to last training cycle) episodes list where the length of the
-    list denotes the number of training cycles that were needed to create it (each element in the
-    list should be a list of episodes).
-    
-    In return, plots a histogram with sections colored according to the number of white wins, black
-    wins, and draws (grey).
-
-    As white should win at 6x6 othello, we expect to see the bars further to the right to be
-    increasingly dominated by the white sections.
-    """
-    results = []
-    for episodes in episodes_list:
-        results.append(results_distribution(episodes))
-
-    # Generate x-axis indices for the number of tuples in the list
-    x = range(len(results))
-    labels = list(range(1, len(results) + 1))
-
-    # Unpack each tuple into separate segments
-    segment1 = [t[0] for t in results]  # Black section
-    segment2 = [t[1] for t in results]  # Grey section
-    segment3 = [t[2] for t in results]  # White section
-
-    plt.figure(figsize=(11, 5))
-
-    # Plot the first segment (black)
-    plt.bar(x, segment1, color='black', edgecolor='black')
-
-    # Plot the second segment (grey), stacked on top of the first
-    plt.bar(x, segment2, bottom=segment1, color='grey', edgecolor='black')
-
-    # Compute the bottom for the third segment (segment1 + segment2)
-    bottom3 = [a + b for a, b in zip(segment1, segment2)]
-
-    # Plot the third segment (white)
-    plt.bar(x, segment3, bottom=bottom3, color='white', edgecolor='black')
-
-    # # Add a text annotation above each bar showing the white percentage.
-    # for i, t in enumerate(results):
-    #     total = sum(t)
-    #     # Calculate the white percentage (t[2] is the white segment)
-    #     white_percentage = (t[2] / total) * 100 if total else 0
-    #     # Use .3g to format the number with a maximum of 3 significant digits
-    #     plt.text(i, total + 1, f'{white_percentage:.3g}%', ha='center', va='bottom', fontsize=5)
-
-    plt.xlabel('Training cycle')
-    plt.ylabel('Episodes')
-    plt.ylim(0, max([sum(t) for t in results]) * 1.1)  # Slightly higher than max for visual clarity
-    plt.xticks(x, labels)
-    plt.show()
-
-
-
-###############################################################################################################################################
-###############################################################################################################################################
-###############################################################################################################################################
-###############################################################################################################################################
-###############################################################################################################################################
-
-
-
-# %%
 ##########################################################################
 # ------------------- Initial training of VALUE NN ----------------------
 ##########################################################################
@@ -328,7 +238,11 @@ history_policy = policy_model.fit(train_dataset_policy_model,
 # saving weights from first good network
 # policy_model.save_weights('zeroth_policy_nn_2.weights.h5')
 
-# %%
+
+##########################################################################
+#  -------------- Concatenating history from different runs ------------- 
+##########################################################################
+
 # concatenating and plotting history from first and second iteration of VALUE network
 initial_value_training_history_1 = read_files('initial_value_training_history')
 initial_value_training_history_2 = read_files('initial_value_training_history_2')
